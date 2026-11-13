@@ -1,0 +1,182 @@
+{
+  "metadata": {
+    "description": "Counterbalancing schema for the Trust Paradigm. Three CB groups rotate trust-level assignments across faces and objects independently.",
+    "n_groups": 3,
+    "faces": ["face_01", "face_02", "face_03"],
+    "objects": ["obj_01", "obj_02", "obj_03"],
+    "trust_levels": ["high", "low", "neutral"]
+  },
+
+  "cb_groups": {
+    "CB1": {
+      "face_assignments": [
+        {
+          "face_id": "face_01",
+          "assigned_trust_level": "high",
+          "fact_sets": [
+            {"domain": "holiday", "item": "H1"},
+            {"domain": "name",    "item": "NA1"}
+          ]
+        },
+        {
+          "face_id": "face_02",
+          "assigned_trust_level": "low",
+          "fact_sets": [
+            {"domain": "holiday", "item": "H2"},
+            {"domain": "name",    "item": "NA2"}
+          ]
+        },
+        {
+          "face_id": "face_03",
+          "assigned_trust_level": "neutral",
+          "fact_sets": [
+            {"domain": "holiday", "item": "H3"},
+            {"domain": "name",    "item": "NA3"}
+          ]
+        }
+      ],
+      "object_assignments": [
+        {
+          "object_id": "obj_01",
+          "assigned_trust_level": "high",
+          "fact_sets": [
+            {"domain": "object_material", "item": "M1"},
+            {"domain": "object_origin", "item": "O1"}
+          ]
+        },
+        {
+          "object_id": "obj_02",
+          "assigned_trust_level": "low",
+          "fact_sets": [
+            {"domain": "object_material", "item": "M2"},
+            {"domain": "object_origin", "item": "O2"}
+          ]
+        },
+        {
+          "object_id": "obj_03",
+          "assigned_trust_level": "neutral",
+          "fact_sets": [
+            {"domain": "object_material", "item": "M3"},
+            {"domain": "object_origin", "item": "O3"}
+          ]
+        }
+      ]
+    },
+
+    "CB2": {
+      "face_assignments": [
+        {
+          "face_id": "face_01",
+          "assigned_trust_level": "low",
+          "fact_sets": [
+            {"domain": "holiday", "item": "H1"},
+            {"domain": "name",    "item": "NA1"}
+          ]
+        },
+        {
+          "face_id": "face_02",
+          "assigned_trust_level": "neutral",
+          "fact_sets": [
+            {"domain": "holiday", "item": "H2"},
+            {"domain": "name",    "item": "NA2"}
+          ]
+        },
+        {
+          "face_id": "face_03",
+          "assigned_trust_level": "high",
+          "fact_sets": [
+            {"domain": "holiday", "item": "H3"},
+            {"domain": "name",    "item": "NA3"}
+          ]
+        }
+      ],
+      "object_assignments": [
+        {
+          "object_id": "obj_01",
+          "assigned_trust_level": "low",
+          "fact_sets": [
+            {"domain": "object_material", "item": "M1"},
+            {"domain": "object_origin", "item": "O1"}
+          ]
+        },
+        {
+          "object_id": "obj_02",
+          "assigned_trust_level": "neutral",
+          "fact_sets": [
+            {"domain": "object_material", "item": "M2"},
+            {"domain": "object_origin", "item": "O2"}
+          ]
+        },
+        {
+          "object_id": "obj_03",
+          "assigned_trust_level": "high",
+          "fact_sets": [
+            {"domain": "object_material", "item": "M3"},
+            {"domain": "object_origin", "item": "O3"}
+          ]
+        }
+      ]
+    },
+
+    "CB3": {
+      "face_assignments": [
+        {
+          "face_id": "face_01",
+          "assigned_trust_level": "neutral",
+          "fact_sets": [
+            {"domain": "holiday", "item": "H1"},
+            {"domain": "name",    "item": "NA1"}
+          ]
+        },
+        {
+          "face_id": "face_02",
+          "assigned_trust_level": "high",
+          "fact_sets": [
+            {"domain": "holiday", "item": "H2"},
+            {"domain": "name",    "item": "NA2"}
+          ]
+        },
+        {
+          "face_id": "face_03",
+          "assigned_trust_level": "low",
+          "fact_sets": [
+            {"domain": "holiday", "item": "H3"},
+            {"domain": "name",    "item": "NA3"}
+          ]
+        }
+      ],
+      "object_assignments": [
+        {
+          "object_id": "obj_01",
+          "assigned_trust_level": "neutral",
+          "fact_sets": [
+            {"domain": "object_material", "item": "M1"},
+            {"domain": "object_origin", "item": "O1"}
+          ]
+        },
+        {
+          "object_id": "obj_02",
+          "assigned_trust_level": "high",
+          "fact_sets": [
+            {"domain": "object_material", "item": "M2"},
+            {"domain": "object_origin", "item": "O2"}
+          ]
+        },
+        {
+          "object_id": "obj_03",
+          "assigned_trust_level": "low",
+          "fact_sets": [
+            {"domain": "object_material", "item": "M3"},
+            {"domain": "object_origin", "item": "O3"}
+          ]
+        }
+      ]
+    }
+  },
+
+  "design_notes": {
+    "independence": "Face and object trust-level assignments within each CB group follow the same rotation pattern (high/low/neutral → low/neutral/high → neutral/high/low) but are conceptually independent — the social vs. non-social comparison is the key manipulation.",
+    "fact_items_fixed": "Fact items (H1/F1, N1/O1, etc.) are fixed per stimulus ID across CB groups. Only the trust level rotates.",
+    "object_facts": "Object domains: object_material (M1=Holz, M2=Metall, M3=Glas) and object_origin (O1=Japan, O2=Brasilien, O3=Kanada). Items fixed per object_id; see item_pool.json."
+  }
+}

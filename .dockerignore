@@ -1,0 +1,23 @@
+node_modules
+dist
+server-dist
+.git
+.env
+pseudonymous-research-export*.json
+trust-game-trials*.tsv
+participant-*.json
+participant-*.tsv
+.agents
+.codex
+**/.claude
+**/.DS_Store
+**/__pycache__
+**/data
+**/*_schedule.csv
+**/*slider_trace.csv
+**/*.psydat
+**/*.log
+modeling/output
+Mausland/build
+Mausland/dist
+Hariri Tasks/faces-berlin

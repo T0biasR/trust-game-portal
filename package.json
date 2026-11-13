@@ -1,0 +1,49 @@
+{
+  "name": "online-task-paradigms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:web": "vite --host 0.0.0.0",
+    "dev:api": "tsx watch server/index.ts",
+    "build": "npm run typecheck && vite build",
+    "build:pages": "npm run typecheck && vite build --mode github-pages",
+    "build:jatos": "npm run typecheck && vite build --mode jatos && node scripts/package-host.mjs jatos",
+    "build:pavlovia": "npm run typecheck && vite build --mode pavlovia && node scripts/package-host.mjs pavlovia",
+    "build:server": "tsc -p server/tsconfig.json",
+    "preview": "vite preview --host 0.0.0.0",
+    "start": "tsx server/index.ts",
+    "typecheck": "tsc --noEmit && tsc -p server/tsconfig.json --noEmit",
+    "test": "tsx --test tests/*.test.ts && python3 -m unittest discover -s modeling -p 'test_*.py' -v",
+    "test:api": "node tests/api-smoke.mjs",
+    "test:production-gates": "node tests/production-gates.mjs"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/static": "^10.1.3",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.12.4",
+    "firebase": "^12.19.0",
+    "firebase-admin": "^14.5.0",
+    "jspsych": "^8.3.0",
+    "pg": "^8.23.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^9.2.4",
+    "prettier": "^3.9.6",
+    "tsx": "^4.23.13",
+    "typescript": "^5.6.3",
+    "vite": "^8.3.0"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "host": "jatos",
+  "apiOrigin": "https://study-api.example.org",
+  "deploymentId": "jatos-production-2026-01",
+  "clientVersion": "trust-online-v2.1.0-jatos.1"
+}

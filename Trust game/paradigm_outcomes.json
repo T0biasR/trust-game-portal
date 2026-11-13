@@ -1,0 +1,128 @@
+{
+  "metadata": {
+    "description": "Outcome parameters for the Trust Paradigm. Defines game mechanics, proportional outcome rates, and per-condition probability schedules for each trust level. Face-to-trust-level mapping is defined in counterbalancing.json.",
+    "version": "1.2",
+    "linked_file": "counterbalancing.json",
+    "currency": "EUR"
+  },
+
+  "game_mechanics": {
+    "stake_range_eur": [0.0, 1.0],
+    "stake_variable": true,
+    "multiplier": 3,
+    "description": "On each trial the participant invests a freely chosen stake s (0 ≤ s ≤ 1 EUR) via slider. The stake is tripled to 3s by the experimenter (implemented in code as tripled_stake = s × 3). The partner then decides how much to return. Net gain = amount returned − s. All gains and losses scale linearly with s.",
+    "multiplier_note": "The multiplier is a real part of the calculation chain (tripled_stake is computed and logged per trial). The net_gain_rates below already reflect the tripling: win means the partner returned 2s of the 3s they received (net +s); lose means the partner returned 0 (net −s)."
+  },
+
+  "outcome_rates": {
+    "win": {
+      "return_rate": 0.667,
+      "net_gain_rate": 1.0,
+      "return_formula": "(2/3) × 3s = 2s returned → net +s",
+      "net_gain_formula": "+s",
+      "label_en": "win",
+      "label_de": "Gewinn",
+      "description": "Partner returns 2/3 of the tripled stake (2s of 3s). Net gain equals the original stake (e.g. invest 0.80 EUR → tripled to 2.40 EUR → partner returns 1.60 EUR → net gain +0.80 EUR)."
+    },
+    "break_even": {
+      "return_rate": 0.333,
+      "net_gain_rate": 0.0,
+      "return_formula": "(1/3) × 3s = s returned → net 0",
+      "net_gain_formula": "0",
+      "label_en": "break_even",
+      "label_de": "kein Verlust",
+      "description": "Partner returns 1/3 of the tripled stake (s of 3s). Participant recovers exactly what was invested. No net gain or loss (e.g. invest 0.80 EUR → tripled to 2.40 EUR → partner returns 0.80 EUR → net 0)."
+    },
+    "lose": {
+      "return_rate": 0.0,
+      "net_gain_rate": -1.0,
+      "return_formula": "0 × 3s = 0 returned → net −s",
+      "net_gain_formula": "−s",
+      "label_en": "lose",
+      "label_de": "Verlust",
+      "description": "Partner returns nothing from the tripled stake. Participant loses the full invested amount (e.g. invest 0.80 EUR → tripled to 2.40 EUR → partner returns 0 → net loss −0.80 EUR). Loss magnitude equals gain magnitude (symmetric), ensuring loss aversion (Kahneman & Tversky: losses weighted ~2× gains) drives Amygdala activation rather than objective asymmetry."
+    }
+  },
+
+  "conditions": {
+    "reward": {
+      "label_en": "reward",
+      "label_de": "Belohnungsbedingung",
+      "description": "Participants can either win (+s) or break even (0). Losing is not possible in this condition. Learning goal: invest more in high-trust partners.",
+      "possible_outcomes": ["win", "break_even"],
+      "trust_levels": {
+        "high": {
+          "p_win": 0.75,
+          "p_break_even": 0.25,
+          "p_lose": 0.00,
+          "EV_rate": 0.75,
+          "EV_note": "EV = 0.75 × (+s) + 0.25 × 0 = +0.75s  (e.g. invest 0.80 EUR → expected gain +0.60 EUR)",
+          "learning_goal": "invest more — clearly profitable"
+        },
+        "neutral": {
+          "p_win": 0.50,
+          "p_break_even": 0.50,
+          "p_lose": 0.00,
+          "EV_rate": 0.50,
+          "EV_note": "EV = 0.50 × (+s) + 0.50 × 0 = +0.50s  (e.g. invest 0.80 EUR → expected gain +0.40 EUR)",
+          "learning_goal": "intermediate — moderately profitable"
+        },
+        "low": {
+          "p_win": 0.25,
+          "p_break_even": 0.75,
+          "p_lose": 0.00,
+          "EV_rate": 0.25,
+          "EV_note": "EV = 0.25 × (+s) + 0.75 × 0 = +0.25s  (e.g. invest 0.80 EUR → expected gain +0.20 EUR)",
+          "learning_goal": "invest less — rarely profitable"
+        }
+      }
+    },
+
+    "punishment": {
+      "label_en": "punishment",
+      "label_de": "Bestrafungsbedingung",
+      "description": "Participants can either break even (0) or lose (−s). Winning is not possible in this condition. Learning goal: invest less in low-trust partners to minimise losses. The rational strategy is to choose the high-trust partner (lowest p_lose) and invest moderately.",
+      "possible_outcomes": ["break_even", "lose"],
+      "trust_levels": {
+        "high": {
+          "p_win": 0.00,
+          "p_break_even": 0.75,
+          "p_lose": 0.25,
+          "EV_rate": -0.25,
+          "EV_note": "EV = 0.75 × 0 + 0.25 × (−s) = −0.25s  (e.g. invest 0.80 EUR → expected loss −0.20 EUR)",
+          "learning_goal": "best choice in punishment — minimal expected loss"
+        },
+        "neutral": {
+          "p_win": 0.00,
+          "p_break_even": 0.50,
+          "p_lose": 0.50,
+          "EV_rate": -0.50,
+          "EV_note": "EV = 0.50 × 0 + 0.50 × (−s) = −0.50s  (e.g. invest 0.80 EUR → expected loss −0.40 EUR)",
+          "learning_goal": "intermediate — moderate expected loss"
+        },
+        "low": {
+          "p_win": 0.00,
+          "p_break_even": 0.25,
+          "p_lose": 0.75,
+          "EV_rate": -0.75,
+          "EV_note": "EV = 0.25 × 0 + 0.75 × (−s) = −0.75s  (e.g. invest 0.80 EUR → expected loss −0.60 EUR)",
+          "learning_goal": "worst choice in punishment — high expected loss"
+        }
+      }
+    }
+  },
+
+  "design_notes": {
+    "face_assignment": "Each face's trust level is determined by counterbalancing.json (cb_groups → assignments → assigned_trust_level). The outcome probabilities here are keyed to that trust level.",
+    "stake_scaling": "All monetary outcomes scale linearly with the invested stake s. There are no fixed euro amounts — only rates. The actual gain or loss on a trial is: net_gain = net_gain_rate × s.",
+    "loss_aversion_calibration": "Win and lose are symmetric in objective magnitude (both = s). Psychological loss aversion (Kahneman & Tversky ~2× weighting) then ensures losses feel larger than gains without requiring artificially inflated loss amounts. This is the optimal calibration for Amygdala-driven threat anticipation.",
+    "outcome_symmetry": "The probability structure is intentionally symmetric: high-trust always has the favourable probability (0.75 p_win in reward, 0.20 p_lose in punishment), low-trust always the unfavourable (0.25 p_win, 0.80 p_lose).",
+    "no_loss_in_reward": "The reward condition contains no 'lose' trials. p_lose is set to 0.00 for documentation completeness.",
+    "no_win_in_punishment": "The punishment condition contains no 'win' trials. p_win is set to 0.00 for documentation completeness.",
+    "neutral_trust_level": "Restored in TrustGame_SocialNonSocial_07072026. All three trust levels (high/neutral/low) are active simultaneously. p_win: high=0.75, neutral=0.50, low=0.25. No per-participant reassignment; neutral_assignment is logged as 'n/a'.",
+    "ev_ordering": {
+      "reward":     "high (+0.75s) > neutral (+0.50s) > low (+0.25s)",
+      "punishment": "high (−0.25s) > neutral (−0.50s) > low (−0.75s)"
+    }
+  }
+}

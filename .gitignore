@@ -1,0 +1,40 @@
+node_modules/
+dist/
+dist-jatos/
+dist-pavlovia/
+dist-pages/
+server-dist/
+.env
+# The SPP PostgreSQL and Firestore experiments are preserved as separate local
+# copies; this repository tracks the primary portal codebase only.
+/spp-trust-portal/
+/spp-trust-portal-firestore/
+# Source archive exceeds GitHub's single-file upload limit. The extracted task
+# source directories remain available and are tracked separately below.
+/2026-07-06-Mausland.zip
+# Keep legacy PsychoPy source snapshots and audit artifacts local. The portal
+# tracks only the three configuration files it imports from the old Trust Game
+# tree; the source projects remain untouched on disk for later integration.
+/2026-07-06-Mausland/
+/Mausland/
+/Hariri Tasks/
+/2026-09-16_Trust_Game/
+/ONLINE_TASK_ECOSYSTEM_FORENSIC_AUDIT_*.md
+/Trust game/*
+!/Trust game/paradigm_outcomes.json
+!/Trust game/counterbalancing.json
+!/Trust game/item_pool.json
+**/.claude/
+**/.idea/
+pseudonymous-research-export*.json
+trust-game-trials*.tsv
+participant-*.json
+participant-*.tsv
+*.log
+.DS_Store
+**/__pycache__/
+**/data/
+**/*_schedule.csv
+**/*slider_trace.csv
+**/*.psydat
+modeling/output/

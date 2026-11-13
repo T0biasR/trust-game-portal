@@ -1,0 +1,133 @@
+{
+  "metadata": {
+    "description": "Biographical fact item pool for the Trust Paradigm. Contains items for face domains (holiday, name) and object domains (object_material, object_origin). Item IDs match the assignments in counterbalancing.json.",
+    "version": "1.1",
+    "linked_file": "counterbalancing.json",
+    "language": "de",
+    "domains_active": ["holiday", "name", "object_material", "object_origin"],
+    "task_format": "2-AFC: one target fact (correct for this stimulus) vs. one foil fact (belongs to a different stimulus, same domain)"
+  },
+
+  "domains": {
+    "holiday": {
+      "label_en": "holiday",
+      "label_de": "Urlaub",
+      "stimulus_type": "face",
+      "items": {
+        "H1": {
+          "item_id": "H1",
+          "fact_DE": "War in Italien im Urlaub.",
+          "question_DE": "Wer war in Italien im Urlaub?",
+          "foils": ["H2", "H3"]
+        },
+        "H2": {
+          "item_id": "H2",
+          "fact_DE": "War in Portugal im Urlaub.",
+          "question_DE": "Wer war in Portugal im Urlaub?",
+          "foils": ["H1", "H3"]
+        },
+        "H3": {
+          "item_id": "H3",
+          "fact_DE": "War in Schottland im Urlaub.",
+          "question_DE": "Wer war in Schottland im Urlaub?",
+          "foils": ["H1", "H2"]
+        }
+      }
+    },
+
+    "name": {
+      "label_en": "name",
+      "label_de": "Name",
+      "stimulus_type": "face",
+      "note": "Sex-specific: _m fields for male participants (face_01=Paul, face_02=Luis, face_03=Max), _f fields for female participants (face_01=Martha, face_02=Lena, face_03=Anna).",
+      "items": {
+        "NA1": {
+          "item_id": "NA1",
+          "fact_DE_m": "Heißt Paul.",
+          "fact_DE_f": "Heißt Martha.",
+          "question_DE_m": "Wer heißt Paul?",
+          "question_DE_f": "Wer heißt Martha?",
+          "foils": ["NA2", "NA3"]
+        },
+        "NA2": {
+          "item_id": "NA2",
+          "fact_DE_m": "Heißt Luis.",
+          "fact_DE_f": "Heißt Lena.",
+          "question_DE_m": "Wer heißt Luis?",
+          "question_DE_f": "Wer heißt Lena?",
+          "foils": ["NA1", "NA3"]
+        },
+        "NA3": {
+          "item_id": "NA3",
+          "fact_DE_m": "Heißt Max.",
+          "fact_DE_f": "Heißt Anna.",
+          "question_DE_m": "Wer heißt Max?",
+          "question_DE_f": "Wer heißt Anna?",
+          "foils": ["NA1", "NA2"]
+        }
+      }
+    },
+
+    "object_material": {
+      "label_en": "object_material",
+      "label_de": "Objektmaterial",
+      "stimulus_type": "object",
+      "note": "Concrete physical property — easy to learn and clearly distinguishable in 2-AFC.",
+      "items": {
+        "M1": {
+          "item_id": "M1",
+          "fact_DE": "Ist aus Holz.",
+          "question_DE": "Welches Objekt ist aus Holz?",
+          "foils": ["M2", "M3"]
+        },
+        "M2": {
+          "item_id": "M2",
+          "fact_DE": "Ist aus Metall.",
+          "question_DE": "Welches Objekt ist aus Metall?",
+          "foils": ["M1", "M3"]
+        },
+        "M3": {
+          "item_id": "M3",
+          "fact_DE": "Ist aus Glas.",
+          "question_DE": "Welches Objekt ist aus Glas?",
+          "foils": ["M1", "M2"]
+        }
+      }
+    },
+
+    "object_origin": {
+      "label_en": "object_origin",
+      "label_de": "Objektherkunft",
+      "stimulus_type": "object",
+      "note": "Real country of origin — concrete and easy to learn.",
+      "items": {
+        "O1": {
+          "item_id": "O1",
+          "fact_DE": "Kommt aus Japan.",
+          "question_DE": "Welches Objekt kommt aus Japan?",
+          "foils": ["O2", "O3"]
+        },
+        "O2": {
+          "item_id": "O2",
+          "fact_DE": "Kommt aus Brasilien.",
+          "question_DE": "Welches Objekt kommt aus Brasilien?",
+          "foils": ["O1", "O3"]
+        },
+        "O3": {
+          "item_id": "O3",
+          "fact_DE": "Kommt aus Kanada.",
+          "question_DE": "Welches Objekt kommt aus Kanada?",
+          "foils": ["O1", "O2"]
+        }
+      }
+    }
+  },
+
+  "design_notes": {
+    "item_assignment_faces": "Which face gets which item is determined at runtime via counterbalancing.json (face_assignments, domains: holiday, name).",
+    "item_assignment_objects": "Which object gets which item is determined at runtime via counterbalancing.json (object_assignments, domains: object_material, object_origin).",
+    "foil_selection": "During the 2-AFC learning phase, the foil is always the item assigned to a different stimulus (face or object) within the same domain and CB group.",
+    "question_format_faces": "question_DE is shown; participant selects which of two faces the fact belongs to.",
+    "question_format_objects": "question_DE is shown; participant selects which of two objects the fact belongs to."
+  }
+}
