@@ -2,6 +2,11 @@
 
 This is an implementation/operations checklist, not authorization to collect data. Keep the Prolific mapping inactive until the local and staging acceptance checklist is signed off and the University data-protection / ethics reviewers approve the exact deployment, consent text, and Prolific-ID handling.
 
+The current `main` code uses PostgreSQL as its authoritative database. Firebase
+is used for private JSON/TSV archive copies and researcher Authentication; it is
+not the participant database in this branch. Do not mix the separate Firestore
+prototype into this deployment.
+
 ## Current division of responsibilities
 
 - GitHub Pages serves the static React/Vite participant interface. It has no database credentials and cannot write research data directly.
@@ -12,29 +17,62 @@ This is an implementation/operations checklist, not authorization to collect dat
 
 ## 1. GitHub Pages
 
-1. Push this repository to a private University-approved GitHub repository. Do not commit `.env`, service-account credentials, participant exports, Firebase rules that grant public access, or production database snapshots.
+The current deployment workflow publishes a **static hosting preview only**.
+It deliberately has no API origin and renders a notice that data is not saved.
+Do not recruit participants or treat this deployment as a functional study.
+Once the PostgreSQL staging API is deployed and verified, change the workflow
+to the connected build mode and add only the public client configuration it
+requires.
+
+1. This repository is currently public, so all tracked source, study materials,
+   and Git history are publicly readable. Confirm this is approved by the
+   University before using the URL with participants. Never commit `.env`,
+   service-account credentials, participant exports, Firebase rules that grant
+   public access, or production database snapshots.
 2. In repository Settings → Pages, select GitHub Actions as the deployment source.
-3. Add repository/environment variables (not secrets; these are public build-time values):
+3. The static preview needs no GitHub variables. For the later connected
+   deployment, in Settings → Environments open or create the `github-pages`
+   environment and set these public build-time variables (not credentials):
    - `STUDY_API_ORIGIN`: the HTTPS Cloud Run API origin, without a trailing slash.
-   - `PAGES_BASE_PATH`: `/` for a custom domain or user-site; otherwise `/<repository-name>/`.
+   - `PAGES_BASE_PATH`: defaults to `/trust-game-portal/` for this repository.
+     Set it to `/` only for a user site or custom domain.
    - `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_APP_ID`, `FIREBASE_PROJECT_ID`: Firebase Web App public configuration used only for named researcher login.
-4. Enable Actions and push to `main`, or run “Deploy participant portal” manually. Inspect the action build log and then test the resulting Pages URL. The API origin must be configured before building; GitHub Pages cannot proxy `/api` to Cloud Run.
-5. In Firebase Authentication, add the exact Pages hostname to its authorized domains. Use a University-owned custom domain if policy permits; otherwise the GitHub-hosted URL remains visible to participants and to GitHub's hosting infrastructure.
-6. Test direct Prolific entry with a Prolific preview URL. Confirm the three parameters arrive, the browser URL is cleaned after entry, refresh resumes the same session, and no access code is shown.
+4. Push the reviewed preview changes to `main`, or run “Deploy participant portal” from Actions. After a successful deployment, visit `https://t0biasr.github.io/trust-game-portal/` and confirm the preview notice and status list appear. This validates static hosting only.
+5. After the PostgreSQL API is deployed, switch to connected build mode, configure its HTTPS origin and Firebase Web App settings, and add the Pages hostname to Firebase Authentication's authorized domains. Use a University-owned custom domain if policy permits; otherwise the GitHub-hosted URL remains visible to participants and GitHub's hosting infrastructure.
+6. Only after the connected build and staging API are verified, test direct Prolific entry with a Prolific preview URL. Confirm the three parameters arrive, the browser URL is cleaned after entry, refresh resumes the same session, and no access code is shown.
 
 The generated public client config is not a secret. Firebase Storage bucket credentials, service-account keys, database passwords, and API signing/pepper values are secrets and must never be Vite variables or GitHub build variables.
 
 ## 2. Google Cloud backend
 
-Provision resources in a University-approved EU region and project:
+Use a University-approved Google Cloud project and region. If policy permits,
+keep staging isolated in its own project; at minimum use separate staging
+Cloud Run service, Cloud SQL instance, archive bucket, and researcher auth
+configuration. Berlin (`europe-west10`) is a candidate because Cloud Run,
+Cloud SQL for PostgreSQL, and Cloud Storage list it as available. Confirm that
+location meets the institution's data-residency policy before creating
+resources; region choice is not itself institutional or legal approval.
 
-1. Create a Cloud Run service account with least-privilege access to Cloud SQL and the private Firebase Storage bucket. Do not download a JSON key; Cloud Run uses its attached identity.
-2. Create a private Cloud SQL for PostgreSQL instance, database, and restricted application user. Enable automated backups, point-in-time recovery if approved, and a documented retention period. Do not expose the database publicly.
+Before provisioning, confirm the project is linked to the approved billing
+account, estimate Cloud SQL and Cloud Storage costs, and create a project
+budget with alerts. Budget alerts alone do not stop charges; Cloud SQL can
+continue accruing its instance cost even when Cloud Run is scaled to zero.
+
+1. Create a Cloud Run service account with least-privilege access to Cloud SQL, Secret Manager, and the private archive bucket. Do not download a JSON key; Cloud Run uses its attached identity.
+2. Create a private Cloud SQL for PostgreSQL instance, database, and restricted application user. Keep the database off the public internet. Connect Cloud Run through the Cloud SQL integration/socket. Set a Cloud Run maximum instance count and `DB_POOL_SIZE` together so autoscaling cannot exhaust the database connection budget. Enable automated backups and PITR after reviewing storage cost; document retention and test restoring a backup.
 3. Create a private Firebase Storage bucket in the approved region. Enforce uniform bucket-level access, public access prevention, restrictive IAM, lifecycle/retention policy, and audit logging. Firebase Storage requires a billable project configuration; estimate and monitor costs before enabling participant collection.
-4. Deploy the API container from the repository's `Dockerfile`. Attach the service account and Cloud SQL instance; set `DATABASE_URL` through Secret Manager using the Cloud SQL socket/connector arrangement appropriate to the chosen deployment. The current local Compose URL is not a production connection string.
+4. Deploy the API container from the repository's `Dockerfile`. The checked-in
+   `.gcloudignore` excludes local `.env*` files, exports, and build outputs from
+   source uploads; inspect the upload file list before the first build. Attach
+   the service account and Cloud SQL instance. Store `DATABASE_URL` in Secret
+   Manager using the Cloud SQL socket/connector connection string; the current
+   local Compose URL is not a production connection string. Cloud Run must
+   allow public invocation for unauthenticated participant browsers; participant
+   sessions are authenticated by the application, while the database remains
+   reachable only through Cloud Run's Cloud SQL connector.
 5. Set required runtime environment/secrets: `NODE_ENV=production`, `CODE_PEPPER`, `OIDC_PROXY_SECRET` (random, at least 32 characters; retain even when Firebase MFA is used), `DATABASE_URL`, `CONSENT_RELEASED=false` until authorized, `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`, `RESEARCHER_ACCOUNT_EMAILS`, and `STUDY_ALLOWED_ORIGINS` containing only the exact GitHub Pages origin (scheme + hostname, no path). Configure Cloud Run ingress, concurrency, max instances, health check, request logging policy, and scaling intentionally.
 6. Configure HTTPS custom domain if available. Test `/api/health`; then run smoke tests with synthetic records only. Verify DB migration, CORS/preflight from Pages, participant session resume, server-side completion checks, archive retry, private bucket object access, and admin download audit logs.
-7. Enable email/password sign-in and TOTP MFA in Firebase Authentication. Create named researcher identities, require verified email and MFA enrollment, set the server allow-list, and test successful MFA plus rejection of non-allow-listed/no-MFA accounts. Enable account recovery and an offboarding procedure.
+7. Enable email/password sign-in and TOTP MFA in Firebase Authentication. Firebase's TOTP MFA requires upgrading Authentication to Identity Platform; check its pricing and billing impact before enabling. Create named researcher identities, require verified email and MFA enrollment, set the server allow-list, and test successful MFA plus rejection of non-allow-listed/no-MFA accounts. Enable account recovery and an offboarding procedure.
 8. Keep the Prolific study mapping inactive while configuring its Study ID, published workflow version, and Prolific completion URL. Run Preview and a controlled end-to-end test; confirm a completed workflow redirects to the exact Prolific completion URL and an incomplete run cannot.
 
 Do not set `CONSENT_RELEASED=true` or activate a study until institutional review has approved the consent version, the direct Prolific identifier processing/linkage, the hosting provider/subprocessors, region, retention/deletion process, and the participant-facing disclosure. GitHub Pages access logs may include network identifiers; this frontend cannot suppress provider-side logging.

@@ -36,7 +36,7 @@ export function App() {
 
   useEffect(() => {
     const restore = async () => {
-      if (isAdminRoute) return;
+      if (isAdminRoute || import.meta.env.VITE_PREVIEW_ONLY === "true") return;
       try {
         const params = new URLSearchParams(window.location.search);
         const prolificPid = params.get("PROLIFIC_PID");
@@ -85,6 +85,35 @@ export function App() {
     };
     void restore();
   }, []);
+
+  if (import.meta.env.VITE_PREVIEW_ONLY === "true") {
+    return (
+      <Centered>
+        <section className="card consent preview-card">
+          <div className="preview-logos" aria-label="University of Vienna and CSM logos">
+            <img src={universityLogo} alt="University of Vienna" />
+            <img src={scanUnitLogo} alt="Cognitive Science Methods Unit" />
+          </div>
+          <span className="eyebrow">GitHub Pages preview</span>
+          <h1>Online study portal</h1>
+          <p>
+            The website is published and its static files are loading. This is
+            a hosting preview only; the Trust Game is not available here yet.
+          </p>
+          <ul className="preview-checklist">
+            <li><span>Website hosting</span><strong>Connected</strong></li>
+            <li><span>PostgreSQL API</span><strong>Not connected</strong></li>
+            <li><span>Participant data</span><strong>Not collected</strong></li>
+            <li><span>Prolific recruitment</span><strong>Not enabled</strong></li>
+          </ul>
+          <p className="fine-print">
+            Do not use this preview for participant recruitment. It does not
+            save responses or contact the study database.
+          </p>
+        </section>
+      </Centered>
+    );
+  }
 
   if (isAdminRoute) return <Suspense fallback={<Centered><p>Verwaltung wird geladen …</p></Centered>}><Admin /></Suspense>;
 

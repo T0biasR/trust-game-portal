@@ -1,0 +1,27 @@
+# Source-only Cloud Build uploads. Never send local credentials, participant
+# exports, generated builds, or dependencies to Google Cloud Build.
+.git/
+.github/
+.agents/
+.codex/
+.env*
+node_modules/
+dist/
+dist-*/
+server-dist/
+modeling/output/
+**/__pycache__/
+**/*.log
+**/data/
+**/*_schedule.csv
+**/*slider_trace.csv
+**/*.psydat
+pseudonymous-research-export*.json
+trust-game-trials*.tsv
+participant-*.json
+participant-*.tsv
+spp-trust-portal/
+spp-trust-portal-firestore/
+Mausland/build/
+Mausland/dist/
+Hariri Tasks/faces-berlin/

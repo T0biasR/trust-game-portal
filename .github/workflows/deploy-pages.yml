@@ -19,45 +19,32 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    # Pin the runner image so scheduled GitHub migrations don't change the
+    # build environment without a reviewed workflow update.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Pin Actions to verified upstream release commits. Dependabot keeps these
+      # pins current through reviewable pull requests.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.x"
       - run: npm ci
       - run: npm test
-      - name: Require the production API origin
-        run: |
-          test -n "$VITE_API_ORIGIN"
-          test -n "$VITE_FIREBASE_API_KEY"
-          test -n "$VITE_FIREBASE_AUTH_DOMAIN"
-          test -n "$VITE_FIREBASE_APP_ID"
-          test -n "$VITE_FIREBASE_PROJECT_ID"
-        env:
-          VITE_API_ORIGIN: ${{ vars.STUDY_API_ORIGIN }}
-          VITE_FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
-          VITE_FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
-      - name: Build static participant portal
+      # First deployment is a static preview only. It has no API origin and
+      # cannot accept participants or save study data.
+      - name: Build static preview
         run: npm run build:pages
         env:
-          VITE_API_ORIGIN: ${{ vars.STUDY_API_ORIGIN }}
-          VITE_BASE_PATH: ${{ vars.PAGES_BASE_PATH || '/' }}
-          VITE_HOST_MODE: github-pages
-          VITE_FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
-          VITE_FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
-      - name: Verify API container build
-        run: docker build --tag online-study-api:ci .
-      - uses: actions/upload-pages-artifact@v3
+          VITE_BASE_PATH: /trust-game-portal/
+          VITE_PREVIEW_ONLY: "true"
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: dist-pages
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
