@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { currentResearcherToken, signInResearcher, signOutResearcher } from "./firebaseAuth";
 
 const apiBase = (import.meta.env.VITE_API_ORIGIN ?? "").replace(/\/$/, "");
 
@@ -17,7 +16,6 @@ type Grant = {
   prolific_session_id?: string | null;
   run_id?: string | null;
   run_status?: string | null;
-  firebase_export_status?: string | null;
   workflow_progress?: Array<{ stepId: string; moduleId: string; status: string }>;
   participant_sex?: "male" | "female" | null;
   counterbalance_group?: "CB1" | "CB2" | "CB3" | null;
@@ -37,13 +35,12 @@ async function adminRequest<T>(
   token: string,
   init?: RequestInit,
 ): Promise<T> {
-  const bearer = import.meta.env.DEV ? token : (await currentResearcherToken()) ?? token;
   const response = await fetch(`${apiBase}${url}`, {
     ...init,
     credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
-      ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
+      ...(import.meta.env.DEV && token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
   });
@@ -58,10 +55,7 @@ export function Admin() {
   const [token, setToken] = useState(
     isDevelopment ? sessionStorage.getItem("admin-token") ?? "" : "",
   );
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [totp, setTotp] = useState("");
-  const [mfaRequired, setMfaRequired] = useState(false);
+  const [proxyResearcher, setProxyResearcher] = useState("");
   const [summary, setSummary] = useState<any>(null);
   const [grants, setGrants] = useState<Grant[]>([]);
   const [policies, setPolicies] = useState<Policy[]>([]);
@@ -151,24 +145,14 @@ export function Admin() {
   };
   useEffect(() => {
     if (isDevelopment && token) void load(token);
-    if (!isDevelopment) void currentResearcherToken().then((idToken) => { if (idToken) { setToken(idToken); void load(idToken); } });
+    if (!isDevelopment) {
+      void adminRequest<{ authenticated: boolean; researcher: string }>("/api/admin/session", "")
+        .then((session) => { setProxyResearcher(session.researcher); void load(""); })
+        .catch((error) => setMessage(error instanceof Error ? error.message : String(error)));
+    }
   }, []);
 
-  const connectResearcher = async () => {
-    if (isDevelopment) return void load(token);
-    try {
-      const idToken = await signInResearcher(email, password, totp);
-      setToken(idToken);
-      setPassword("");
-      setTotp("");
-      setMfaRequired(false);
-      await load(idToken);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("Authenticator-Code")) setMfaRequired(true);
-      setMessage(message);
-    }
-  };
+  const connectResearcher = async () => { await load(token); };
 
   const generate = async () => {
     try {
@@ -306,8 +290,10 @@ export function Admin() {
 
   const exportGrant = async (grantId: string, format: "json" | "tsv") => {
     try {
-      const bearer = isDevelopment ? token : (await currentResearcherToken()) ?? token;
-      const response = await fetch(`${apiBase}/api/admin/export/${grantId}/file?format=${format}`, { headers: { Authorization: `Bearer ${bearer}` } });
+      const response = await fetch(`${apiBase}/api/admin/export/${grantId}/file?format=${format}`, {
+        credentials: "same-origin",
+        headers: import.meta.env.DEV && token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (!response.ok) throw new Error(`Export fehlgeschlagen (HTTP ${response.status})`);
       const blob = await response.blob();
       const link = document.createElement("a");
@@ -332,7 +318,7 @@ export function Admin() {
           <strong>Research Administration</strong>
           <span>Online Trust Game</span>
         </div>
-        <a className="admin-participant-link" href={import.meta.env.MODE === "github-pages" ? `${import.meta.env.BASE_URL}index.html?participant=1` : "/"}>Teilnehmeransicht →</a>
+        <a className="admin-participant-link" href={import.meta.env.BASE_URL}>Teilnehmeransicht →</a>
       </header>
       <main className="admin">
         <div className="admin-hero">
@@ -350,18 +336,13 @@ export function Admin() {
           <div>
             <span className="section-kicker">Zugang</span>
             <h2>Mit Verwaltung verbinden</h2>
-            <p>{isDevelopment ? "Lokaler Development-Token." : "Persönliches Forschungskonto mit verpflichtendem Authenticator-Zweitfaktor."}</p>
+            <p>{isDevelopment ? "Lokaler Development-Token." : proxyResearcher ? `Angemeldet über die institutionelle Anmeldung: ${proxyResearcher}` : "Die Verwaltung wird über die geschützte institutionelle Anmeldung freigeschaltet."}</p>
           </div>
           <div className="admin-auth-controls">
             {isDevelopment ? <label>
               Development token<input type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Token eingeben" />
-            </label> : <>
-              <label>E-Mail-Adresse<input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-              <label>Passwort<input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
-              {mfaRequired && <label>Authenticator-Code<input inputMode="numeric" autoComplete="one-time-code" value={totp} onChange={(e) => setTotp(e.target.value)} maxLength={6} /></label>}
-            </>}
-            <button className="secondary" onClick={() => void connectResearcher()}>{isDevelopment ? "Verbinden" : mfaRequired ? "Zweitfaktor bestätigen" : "Anmelden"}</button>
-            {!isDevelopment && token && <button className="text-button" onClick={() => { void signOutResearcher(); setToken(""); setSummary(null); setGrants([]); }}>Abmelden</button>}
+            </label> : null}
+            {isDevelopment && <button className="secondary" onClick={() => void connectResearcher()}>Verbinden</button>}
           </div>
         </section>
         {message && <p className="notice">{message}</p>}
@@ -477,7 +458,7 @@ export function Admin() {
                       <td>{grant.study_type}</td>
                       <td>{grant.recruitment_source === "prolific" ? <><small>PID {grant.prolific_pid || "–"}</small><br/><small>Study {grant.prolific_study_id || "–"} · Session {grant.prolific_session_id || "–"}</small></> : grant.recruitment_source || "manual"}</td>
                       <td>{grant.status}</td>
-                      <td>{grant.run_status || "–"}<br/><small>{grant.workflow_progress?.map((step) => `${step.moduleId}: ${step.status}`).join(" · ") || "Kein Workflow-Fortschritt"}<br/>Firebase: {grant.firebase_export_status || "–"}</small></td>
+                      <td>{grant.run_status || "–"}<br/><small>{grant.workflow_progress?.map((step) => `${step.moduleId}: ${step.status}`).join(" · ") || "Kein Workflow-Fortschritt"}</small></td>
                       <td>
                         {new Date(grant.expires_at).toLocaleDateString("de-DE")}
                       </td>

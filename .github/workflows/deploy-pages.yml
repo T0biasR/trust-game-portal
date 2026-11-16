@@ -1,4 +1,4 @@
-name: Deploy participant portal
+name: Build and deploy participant site
 
 on:
   push:
@@ -19,32 +19,42 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    # Pin the runner image so scheduled GitHub migrations don't change the
-    # build environment without a reviewed workflow update.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
     steps:
-      # Pin Actions to verified upstream release commits. Dependabot keeps these
-      # pins current through reviewable pull requests.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: "3.x"
+      - uses: actions/configure-pages@v5
       - run: npm ci
-      - run: npm test
-      # First deployment is a static preview only. It has no API origin and
-      # cannot accept participants or save study data.
-      - name: Build static preview
-        run: npm run build:pages
+      - name: Check required public deployment settings
+        env:
+          VITE_API_ORIGIN: ${{ vars.VITE_API_ORIGIN }}
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_RECAPTCHA_ENTERPRISE_SITE_KEY: ${{ vars.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY }}
+        run: |
+          for name in VITE_API_ORIGIN VITE_FIREBASE_API_KEY VITE_FIREBASE_AUTH_DOMAIN VITE_FIREBASE_PROJECT_ID VITE_FIREBASE_APP_ID VITE_RECAPTCHA_ENTERPRISE_SITE_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::Missing repository variable: $name"; exit 1; fi
+          done
+      - name: Build static participant app
         env:
           VITE_BASE_PATH: /trust-game-portal/
-          VITE_PREVIEW_ONLY: "true"
-      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+          VITE_HOST_MODE: github-pages
+          VITE_API_ORIGIN: ${{ vars.VITE_API_ORIGIN }}
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_RECAPTCHA_ENTERPRISE_SITE_KEY: ${{ vars.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY }}
+          VITE_FIREBASE_AUTH_EMULATOR_URL: ""
+          VITE_FIRESTORE_EMULATOR_URL: ""
+        run: npm run build:github-pages
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: dist-pages
       - id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+        uses: actions/deploy-pages@v4

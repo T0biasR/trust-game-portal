@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isRunOwner(runId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/study_runs/$(runId))
+        && get(/databases/$(database)/documents/study_runs/$(runId)).data.participant_auth_uid == request.auth.uid;
+    }
+
+    function runAcceptsEvents(runId) {
+      return isRunOwner(runId)
+        && get(/databases/$(database)/documents/study_runs/$(runId)).data.status == 'running';
+    }
+
+    // The browser can append its own task events only. Run documents, schedules,
+    // outcomes, completion records, grants, and researcher data remain server-only.
+    match /study_runs/{runId}/trial_events/{eventId} {
+      allow create: if runAcceptsEvents(runId)
+        && request.resource.data.keys().hasOnly([
+          'sequence', 'event_id', 'event_type', 'trial_id', 'client_time_ms',
+          'payload', 'participant_auth_uid', 'server_time'
+        ])
+        && request.resource.data.event_id == eventId
+        && request.resource.data.participant_auth_uid == request.auth.uid
+        && request.resource.data.sequence is int
+        && request.resource.data.sequence >= 0
+        && request.resource.data.event_type is string
+        && request.resource.data.event_type.size() <= 80
+        && (request.resource.data.trial_id == null || request.resource.data.trial_id is string)
+        && request.resource.data.client_time_ms is number
+        && request.resource.data.payload is map
+        && request.resource.data.payload.keys().size() <= 64
+        && request.resource.data.server_time == request.time;
+      // A network retry may refresh server_time, but cannot alter event content.
+      allow update: if runAcceptsEvents(runId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['server_time']);
+      allow read, delete: if false;
+    }
+
+    // No participant or browser researcher access to any other records.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

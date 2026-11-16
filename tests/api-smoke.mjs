@@ -1,9 +1,35 @@
+import "dotenv/config";
 import { randomUUID } from "node:crypto";
 
 const base = process.env.API_BASE ?? "http://127.0.0.1:3001";
-const adminHeaders = {
-  Authorization: `Bearer ${process.env.DEV_ADMIN_TOKEN ?? "local-admin"}`,
-};
+const projectId = process.env.FIREBASE_PROJECT_ID;
+const firestoreEmulator = process.env.FIRESTORE_EMULATOR_HOST;
+const authEmulator = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+if (!projectId?.startsWith("demo-") || !firestoreEmulator || !authEmulator) {
+  throw new Error(
+    "API smoke tests require FIREBASE_PROJECT_ID=demo-..., FIRESTORE_EMULATOR_HOST, and FIREBASE_AUTH_EMULATOR_HOST; live projects are not allowed.",
+  );
+}
+const authResponse = await fetch(
+  `http://${authEmulator}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=emulator-api-key`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ returnSecureToken: true }),
+  },
+);
+const authBody = await authResponse.json();
+if (!authResponse.ok || typeof authBody.idToken !== "string") {
+  throw new Error(`Could not create demo anonymous Firebase identity: ${JSON.stringify(authBody)}`);
+}
+const participantAuthHeaders = { "X-Firebase-Id-Token": authBody.idToken };
+const researcherEmail = process.env.RESEARCHER_ACCOUNT_EMAILS?.split(",")[0]?.trim();
+const adminHeaders = process.env.OIDC_PROXY_SECRET && researcherEmail
+  ? {
+      "X-Forwarded-User": researcherEmail,
+      "X-Research-Proxy-Secret": process.env.OIDC_PROXY_SECRET,
+    }
+  : { Authorization: `Bearer ${process.env.DEV_ADMIN_TOKEN ?? "local-admin"}` };
 let cookie = "";
 
 async function raw(path, body, headers = {}) {
@@ -12,13 +38,17 @@ async function raw(path, body, headers = {}) {
     headers: {
       "Content-Type": "application/json",
       ...(cookie ? { Cookie: cookie } : {}),
+      ...participantAuthHeaders,
       ...headers,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const setCookie = response.headers.get("set-cookie");
   if (setCookie) cookie = setCookie.split(";", 1)[0];
-  const value = await response.json();
+  const contentType = response.headers.get("content-type") ?? "";
+  const value = contentType.includes("application/json")
+    ? await response.json()
+    : await response.text();
   return { response, value };
 }
 
@@ -159,7 +189,7 @@ const policies = await call(
   adminHeaders,
 );
 const policy = policies.policies.find(
-  (row) => row.returns_by_investment.join(",") === returns.join(","),
+  (row) => row.id === trustee.id,
 );
 if (!policy || policy.quality_passed)
   throw new Error("Participant policy bypassed researcher review");

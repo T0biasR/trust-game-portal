@@ -57,6 +57,8 @@ export function adminIdentity(request: FastifyRequest) {
   const proxyUser = request.headers["x-forwarded-user"];
   const proxySecret = request.headers["x-research-proxy-secret"];
   if (
+    typeof process.env.OIDC_PROXY_SECRET === "string" &&
+    process.env.OIDC_PROXY_SECRET.length >= 32 &&
     typeof proxyUser === "string" &&
     proxySecret === process.env.OIDC_PROXY_SECRET
   )

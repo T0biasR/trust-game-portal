@@ -1,0 +1,20 @@
+{
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs22",
+    "ignore": ["node_modules", ".git", "*.log", ".env.*", ".secret.local"],
+    "predeploy": [
+      "npm --prefix \"$PROJECT_DIR\" run build:server",
+      "node \"$PROJECT_DIR/scripts/package-functions.mjs\""
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "emulators": {
+    "auth": { "host": "127.0.0.1", "port": 9099 },
+    "firestore": { "host": "127.0.0.1", "port": 8080 },
+    "functions": { "host": "127.0.0.1", "port": 5001 },
+    "ui": { "enabled": false }
+  }
+}

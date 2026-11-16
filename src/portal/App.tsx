@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { api, configureProlificSession, setHostedSessionToken, type RunDto } from "../api";
 import { completeHostedRuntime } from "../host/runtime";
+import { ensureParticipantFirebaseUser } from "../participantFirebase";
 
 const TrustStudy = lazy(() => import("../study/TrustStudy").then((module) => ({ default: module.TrustStudy })));
 const TrusteeStudy = lazy(() => import("../study/TrusteeStudy").then((module) => ({ default: module.TrusteeStudy })));
@@ -20,7 +21,8 @@ type WorkflowDto = {
 };
 
 export function App() {
-  const isAdminRoute = location.pathname === "/admin" || location.hash === "#/admin";
+  const adminPath = `${import.meta.env.BASE_URL}admin`.replaceAll("//", "/");
+  const isAdminRoute = location.pathname.replace(/\/$/, "") === adminPath.replace(/\/$/, "") || location.hash === "#/admin";
   const [screen, setScreen] = useState<Screen>(
     isAdminRoute ? "dashboard" : "loading",
   );
@@ -36,8 +38,9 @@ export function App() {
 
   useEffect(() => {
     const restore = async () => {
-      if (isAdminRoute || import.meta.env.VITE_PREVIEW_ONLY === "true") return;
+      if (isAdminRoute) return;
       try {
+        await ensureParticipantFirebaseUser();
         const params = new URLSearchParams(window.location.search);
         const prolificPid = params.get("PROLIFIC_PID");
         const studyId = params.get("STUDY_ID");
@@ -86,35 +89,6 @@ export function App() {
     void restore();
   }, []);
 
-  if (import.meta.env.VITE_PREVIEW_ONLY === "true") {
-    return (
-      <Centered>
-        <section className="card consent preview-card">
-          <div className="preview-logos" aria-label="University of Vienna and CSM logos">
-            <img src={universityLogo} alt="University of Vienna" />
-            <img src={scanUnitLogo} alt="Cognitive Science Methods Unit" />
-          </div>
-          <span className="eyebrow">GitHub Pages preview</span>
-          <h1>Online study portal</h1>
-          <p>
-            The website is published and its static files are loading. This is
-            a hosting preview only; the Trust Game is not available here yet.
-          </p>
-          <ul className="preview-checklist">
-            <li><span>Website hosting</span><strong>Connected</strong></li>
-            <li><span>PostgreSQL API</span><strong>Not connected</strong></li>
-            <li><span>Participant data</span><strong>Not collected</strong></li>
-            <li><span>Prolific recruitment</span><strong>Not enabled</strong></li>
-          </ul>
-          <p className="fine-print">
-            Do not use this preview for participant recruitment. It does not
-            save responses or contact the study database.
-          </p>
-        </section>
-      </Centered>
-    );
-  }
-
   if (isAdminRoute) return <Suspense fallback={<Centered><p>Verwaltung wird geladen …</p></Centered>}><Admin /></Suspense>;
 
   const start = async () => {
@@ -137,7 +111,7 @@ export function App() {
         onSuccess={(result) => {
           if (result.sessionToken) setHostedSessionToken(result.sessionToken);
           if (result.studyType === "admin") {
-            window.location.assign(import.meta.env.MODE === "github-pages" ? `${import.meta.env.BASE_URL}index.html#/admin` : "/admin");
+            window.location.assign(`${import.meta.env.BASE_URL}admin`);
             return;
           }
           setStudyType(result.studyType === "trustee" ? "trustee" : "investor");

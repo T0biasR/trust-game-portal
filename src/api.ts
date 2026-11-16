@@ -1,4 +1,5 @@
 import type { TrustSchedule } from "./shared/protocol";
+import { participantAppCheckToken, participantFirebaseIdToken, saveParticipantEvents } from "./participantFirebase";
 
 export type HostMode = "portal" | "jatos" | "pavlovia" | "github-pages";
 
@@ -57,6 +58,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   if (deploymentId) headers.set("X-Study-Deployment-Id", deploymentId);
   if (clientVersion) headers.set("X-Study-Client-Version", clientVersion);
   if (hostedSessionToken) headers.set("Authorization", `Bearer ${hostedSessionToken}`);
+  headers.set("X-Firebase-Id-Token", await participantFirebaseIdToken());
+  const appCheckToken = await participantAppCheckToken();
+  if (appCheckToken) headers.set("X-Firebase-App-Check", appCheckToken);
   const response = await fetch(`${apiOrigin}${url}`, {
     ...init,
     credentials: hostMode === "portal" ? "same-origin" : "omit",
@@ -245,10 +249,7 @@ export class EventQueue {
     while (this.pending.length) {
       const batch = this.pending.slice(0, 50);
       try {
-        await request(`/api/runs/${this.runId}/events`, {
-          method: "POST",
-          body: JSON.stringify({ events: batch }),
-        });
+        await saveParticipantEvents(this.runId, batch);
         this.pending.splice(0, batch.length);
         this.persist();
       } catch {

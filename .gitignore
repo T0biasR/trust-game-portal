@@ -38,3 +38,8 @@ participant-*.tsv
 **/*slider_trace.csv
 **/*.psydat
 modeling/output/
+functions/node_modules/
+functions/runtime/
+functions/.secret.local
+functions/.env.*
+!functions/.env.example

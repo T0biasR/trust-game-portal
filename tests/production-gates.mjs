@@ -1,6 +1,8 @@
 const base = process.env.API_BASE ?? "http://127.0.0.1:3001";
 const proxySecret = process.env.OIDC_PROXY_SECRET;
 if (!proxySecret) throw new Error("OIDC_PROXY_SECRET is required");
+const researcherEmail = (process.env.RESEARCHER_ACCOUNT_EMAILS ?? "").split(",")[0]?.trim();
+if (!researcherEmail) throw new Error("RESEARCHER_ACCOUNT_EMAILS is required");
 let cookie = "";
 
 async function request(path, body, headers = {}) {
@@ -29,7 +31,7 @@ if (
   throw new Error("CSP is missing");
 
 const adminHeaders = {
-  "X-Forwarded-User": "production-test",
+  "X-Forwarded-User": researcherEmail,
   "X-Research-Proxy-Secret": proxySecret,
 };
 const generated = await request(

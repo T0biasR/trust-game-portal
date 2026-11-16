@@ -15,5 +15,8 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests"],
+  // Mausland remains disabled and its local settings.json is intentionally
+  // excluded from this repository until that task is validated for the portal.
+  "exclude": ["src/tasks/mausland.ts"]
 }

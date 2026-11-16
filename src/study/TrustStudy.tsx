@@ -9,7 +9,7 @@ const universityLogo = new URL("../../Uni_Logo (1).png", import.meta.url).href;
 const scanUnitLogo = new URL("../../csm_logo_7135bba3da (1).jpg", import.meta.url).href;
 
 const faceAssets = import.meta.glob(
-  "../../2026-09-16_Trust_Game/stimuli_main/face_*.png",
+  "../../Trust game/stimuli/face_*.png",
   {
     eager: true,
     query: "?url",
@@ -17,7 +17,7 @@ const faceAssets = import.meta.glob(
   },
 ) as Record<string, string>;
 const objectAssets = import.meta.glob(
-  "../../2026-09-16_Trust_Game/stimuli_main/obj_*.png",
+  "../../Trust game/stimuli/obj_*.png",
   { eager: true, query: "?url", import: "default" },
 ) as Record<string, string>;
 
