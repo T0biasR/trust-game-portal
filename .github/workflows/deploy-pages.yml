@@ -2,7 +2,8 @@ name: Build and deploy participant site
 
 on:
   push:
-    branches: [main]
+    # Keep the PostgreSQL version on main separate from the Firebase Pages app.
+    branches: [firebase-direct-firestore]
   workflow_dispatch:
 
 permissions:
