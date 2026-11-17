@@ -81,7 +81,7 @@ Use the resulting HTTPS function URL as `VITE_API_ORIGIN` in GitHub repository V
 
 ### Publish GitHub Pages
 
-The included `.github/workflows/deploy-pages.yml` builds and deploys on pushes to `main` and manual workflow dispatch. Add all six public GitHub Variables: the four `VITE_FIREBASE_*` values above, `VITE_RECAPTCHA_ENTERPRISE_SITE_KEY`, and `VITE_API_ORIGIN`. The workflow uses the repository path `/trust-game-portal/`. In GitHub repository Settings → Pages, select **GitHub Actions** as the build and deployment source. The first successful workflow publishes `https://t0biasr.github.io/trust-game-portal/`.
+The included `.github/workflows/deploy-pages.yml` builds and deploys on pushes to `firebase-direct-firestore` and manual workflow dispatch. The PostgreSQL `main` branch cannot overwrite the Firebase Pages deployment. Add all six public GitHub Variables: the four `VITE_FIREBASE_*` values above, `VITE_RECAPTCHA_ENTERPRISE_SITE_KEY`, and `VITE_API_ORIGIN`. The workflow uses the repository path `/trust-game-portal/`. In GitHub repository Settings → Pages, select **GitHub Actions** as the build and deployment source. The first successful workflow publishes `https://t0biasr.github.io/trust-game-portal/`.
 
 Prolific appends `PROLIFIC_PID`, `STUDY_ID`, and `SESSION_ID` to the study URL. The browser forwards them to the trusted API, which checks that the study is configured and creates an idempotent assignment. These URL parameters alone are not cryptographic proof of a Prolific participant. If Prolific offers Secure External URL for this study, configure and validate that mechanism before recruitment. Set Prolific's completion URL to the exact approved code URL; the portal only redirects after server-side workflow completion.
 
