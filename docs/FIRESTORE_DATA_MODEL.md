@@ -25,7 +25,7 @@ client Security Rules do not constrain Admin SDK requests.
 | `participant_sessions/{tokenHash}` | HMAC digest | Grant ID, expiry, last-seen time |
 | `access_grants/{grantId}/consents/{consentId}` | random UUID | Consent document version, decision, server timestamp |
 | `access_grants/{grantId}/participant_events/{eventId}` | random UUID | Append-only participant lifecycle events |
-| `study_runs/{runId}` | random UUID | Protocol, schedule, seed, host metadata, status and completion summary |
+| `study_runs/{runId}` | random UUID | Protocol, schedule, seed, host metadata, immutable workflow step order and randomization method, status and completion summary |
 | `study_runs/{runId}/trial_events/{eventId}` | client event UUID | Append-only trial event with sequence and server timestamp |
 | `study_runs/{runId}/outcomes/{trialId}` | stable trial ID | Server-resolved outcome; immutable/idempotent after first resolution |
 | `study_runs/{runId}/risk_resolutions/{trialId}` | stable trial ID | Server-resolved risk result |

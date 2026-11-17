@@ -20,8 +20,8 @@ type Grant = {
   participant_sex?: "male" | "female" | null;
   counterbalance_group?: "CB1" | "CB2" | "CB3" | null;
 };
-type WorkflowModule = { id: string; title: string; kind: string; enabled: boolean; description: string };
-type WorkflowRecord = { id: string; name: string; version: number; status: string; steps: Array<{id:string;moduleId:string;required:boolean}>; content_hash: string; prolific_study_id?: string | null; prolific_active?: boolean | null; completion_url?: string | null };
+type WorkflowModule = { id: string; title: string; kind: string; enabled: boolean; description: string; version: string };
+type WorkflowRecord = { id: string; name: string; version: number; status: string; steps: Array<{id:string;moduleId:string;required:boolean}>; randomize_task_order?: boolean; content_hash: string; prolific_study_id?: string | null; prolific_active?: boolean | null; completion_url?: string | null };
 type Policy = {
   id: string;
   returns_by_investment: number[];
@@ -70,6 +70,7 @@ export function Admin() {
   const [workflows, setWorkflows] = useState<WorkflowRecord[]>([]);
   const [workflowName, setWorkflowName] = useState("Prolific Trust Study");
   const [selectedModules, setSelectedModules] = useState<string[]>(["trust-game"]);
+  const [randomizeTaskOrder, setRandomizeTaskOrder] = useState(true);
   const [prolificStudyId, setProlificStudyId] = useState("");
   const [prolificWorkflowId, setProlificWorkflowId] = useState("");
   const [completionUrl, setCompletionUrl] = useState("");
@@ -107,6 +108,7 @@ export function Admin() {
         body: JSON.stringify({
           name: workflowName,
           steps: selectedModules.map((moduleId, i) => ({ id: `${moduleId.replace(/[^a-z0-9]/gi, "-")}-${i + 1}`, moduleId, required: true })),
+          randomizeTaskOrder,
         }),
       });
       setMessage(`Entwurf v${result.workflow.version} angelegt. Bitte prüfen und veröffentlichen.`);
@@ -500,10 +502,12 @@ export function Admin() {
                   {workflowModules.map((module) => <label className="check" key={module.id}><input type="checkbox" disabled={!module.enabled} checked={selectedModules.includes(module.id)} onChange={(e) => setSelectedModules((current) => e.target.checked ? [...current, module.id] : current.filter((id) => id !== module.id))}/>{module.title}{!module.enabled ? " (noch nicht freigegeben)" : ""}</label>)}
                 </fieldset>
                 {selectedModules.length > 0 && <ol className="workflow-order">{selectedModules.map((moduleId, index) => <li key={`${moduleId}-${index}`}><span>{workflowModules.find((module) => module.id === moduleId)?.title ?? moduleId}</span><button type="button" className="text-button" disabled={index === 0} onClick={() => moveWorkflowModule(index, -1)} aria-label="Schritt nach oben">↑</button><button type="button" className="text-button" disabled={index === selectedModules.length - 1} onClick={() => moveWorkflowModule(index, 1)} aria-label="Schritt nach unten">↓</button></li>)}</ol>}
+                <label className="check"><input type="checkbox" checked={randomizeTaskOrder} onChange={(event) => setRandomizeTaskOrder(event.target.checked)} />Aufgabenreihenfolge pro teilnehmender Person zufällig festlegen</label>
+                <p className="fine-print">Die zufällig zugewiesene Reihenfolge wird beim Prolific-Einstieg gespeichert und bei einer Fortsetzung wiederverwendet. Fragebögen behalten ihre festgelegten Positionen.</p>
                 <button className="primary" disabled={!workflowName.trim() || selectedModules.length === 0} onClick={() => void createWorkflowDraft()}>Entwurf erstellen</button>
               </div>
               <h3>Versionen</h3>
-              {workflows.length === 0 ? <p>Noch keine Workflows vorhanden.</p> : <div className="admin-table-wrap"><table><thead><tr><th>Name</th><th>Version</th><th>Status</th><th>Inhalt</th><th>Aktion</th></tr></thead><tbody>{workflows.map((workflow) => <tr key={workflow.id}><td>{workflow.name}</td><td>{workflow.version}</td><td>{workflow.status}</td><td>{workflow.steps.map((step) => step.moduleId).join(" → ")}</td><td>{workflow.status === "draft" && <button className="text-button" onClick={() => void publishWorkflow(workflow.id)}>Veröffentlichen</button>}</td></tr>)}</tbody></table></div>}
+              {workflows.length === 0 ? <p>Noch keine Workflows vorhanden.</p> : <div className="admin-table-wrap"><table><thead><tr><th>Name</th><th>Version</th><th>Status</th><th>Inhalt</th><th>Aktion</th></tr></thead><tbody>{workflows.map((workflow) => <tr key={workflow.id}><td>{workflow.name}</td><td>{workflow.version}</td><td>{workflow.status}</td><td>{workflow.steps.map((step) => step.moduleId).join(" → ")}{workflow.randomize_task_order ? " · Aufgaben randomisiert" : ""}</td><td>{workflow.status === "draft" && <button className="text-button" onClick={() => void publishWorkflow(workflow.id)}>Veröffentlichen</button>}</td></tr>)}</tbody></table></div>}
             </section>
             <section className="card admin-panel">
               <div className="admin-section-heading"><div><span className="section-kicker">Rekrutierung</span><h2>Prolific-Studie zuordnen</h2><p>Erst aktivieren, nachdem Preview/Test abgeschlossen, API-Origin und Completion-URL verifiziert sowie Einwilligung und Datenschutz geprüft wurden.</p></div></div>

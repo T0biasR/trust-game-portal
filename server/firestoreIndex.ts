@@ -15,7 +15,7 @@ import {
   type OutcomeBank, type TrusteePolicy,
 } from "../src/shared/protocol.js";
 import { createFirestore, checkFirestoreReady } from "./firestore.js";
-import { validateWorkflowSteps, WORKFLOW_MODULES, type WorkflowStep } from "../src/shared/workflow.js";
+import { assignWorkflowOrder, validateWorkflowSteps, WORKFLOW_MODULES, type WorkflowStep } from "../src/shared/workflow.js";
 import { questionnaireById, validateQuestionnaireResponses } from "../src/shared/questionnaires.js";
 import { adminIdentity, checkRateLimit, digest, newCode, newParticipantCode, newToken, normalizeCode, stableJsonHash } from "./security.js";
 
@@ -211,6 +211,11 @@ app.post("/api/prolific/entry", async (request, reply) => {
   if (!mapping?.active || !definition || definition.status !== "published") return reply.code(403).send({ error: "This Prolific study is not currently configured." });
   const checked = validateWorkflowSteps(definition.steps);
   if (!checked.ok) return reply.code(503).send({ error: "The configured workflow is not available." });
+  const assignedSteps = assignWorkflowOrder(
+    checked.steps,
+    definition.randomize_task_order === true,
+    () => crypto.randomInt(0, 2 ** 32) / 2 ** 32,
+  );
   const sessionKey = digest(`${body.data.studyId}:${body.data.sessionId}`); const sessionIndex = db.collection(C.prolificSessions).doc(sessionKey);
   const assignment = await db.runTransaction(async (tx) => {
     const [indexSnap, allocatorSnap] = await Promise.all([tx.get(sessionIndex), tx.get(db.collection(C.allocators).doc(`prolific-${body.data.studyId}`))]);
@@ -218,7 +223,7 @@ app.post("/api/prolific/entry", async (request, reply) => {
     const counts = (allocatorSnap.exists ? allocatorSnap.get("counts") : {}) as Record<string, number>;
     const group = nextLeastUsedCounterbalanceGroup(counts); const nextCounts = { ...counts, [group]: (counts[group] ?? 0) + 1 };
     const grantId = crypto.randomUUID(); const codeHash = digest(newToken()); const at = nowIso();
-    tx.create(grantRef(grantId), { code_hash: codeHash, study_type: checked.steps.some((s) => s.moduleId === "trust-game") ? "investor" : "workflow", counterbalance_group: group, status: "issued", protocol_version: PROTOCOL_VERSION, expires_at: expiresAt(7), created_at: at, recruitment_source: "prolific", prolific_pid: body.data.prolificPid, prolific_study_id: body.data.studyId, prolific_session_id: body.data.sessionId, workflow_version_id: definition.id });
+    tx.create(grantRef(grantId), { code_hash: codeHash, study_type: checked.steps.some((s) => s.moduleId === "trust-game") ? "investor" : "workflow", counterbalance_group: group, status: "issued", protocol_version: PROTOCOL_VERSION, expires_at: expiresAt(7), created_at: at, recruitment_source: "prolific", prolific_pid: body.data.prolificPid, prolific_study_id: body.data.studyId, prolific_session_id: body.data.sessionId, workflow_version_id: definition.id, workflow_steps: assignedSteps, workflow_order_randomized: definition.randomize_task_order === true, workflow_order_algorithm: definition.randomize_task_order === true ? "fisher-yates-crypto-v1" : "fixed-definition-order-v1" });
     tx.create(sessionIndex, { grant_id: grantId }); tx.set(db.collection(C.allocators).doc(`prolific-${body.data.studyId}`), { counts: nextCounts, updated_at: at });
     return { grantId, created: true };
   });
@@ -233,8 +238,8 @@ app.post("/api/prolific/entry", async (request, reply) => {
     tx.create(db.collection(C.sessions).doc(digest(token)), { access_grant_id: grantId, expires_at: expiry, created_at: at, last_seen_at: at });
     if (g.get("status") === "issued") tx.update(grantRef(grantId), { status: "active" });
   });
-  await addParticipantEvent(grantId, created ? "prolific_entry" : "prolific_entry_resumed", { studyId: body.data.studyId, sessionId: body.data.sessionId, counterbalanceGroup: grant.counterbalance_group });
-  return { sessionToken: token, recruitmentSource: "prolific", status: grant.status, workflow: { id: definition.id, name: definition.name, version: definition.version, steps: checked.steps, contentHash: definition.content_hash } };
+  await addParticipantEvent(grantId, created ? "prolific_entry" : "prolific_entry_resumed", { studyId: body.data.studyId, sessionId: body.data.sessionId, counterbalanceGroup: grant.counterbalance_group, workflowStepIds: (grant.workflow_steps ?? assignedSteps).map((step: WorkflowStep) => step.id), workflowOrderAlgorithm: grant.workflow_order_algorithm ?? (definition.randomize_task_order === true ? "fisher-yates-crypto-v1" : "fixed-definition-order-v1") });
+  return { sessionToken: token, recruitmentSource: "prolific", status: grant.status, workflow: { id: definition.id, name: definition.name, version: definition.version, steps: (grant.workflow_steps ?? assignedSteps) as WorkflowStep[], randomizeTaskOrder: definition.randomize_task_order === true, contentHash: definition.content_hash } };
 });
 
 app.get("/api/participant/status", async (request, reply) => {
@@ -253,7 +258,7 @@ app.get("/api/participant/status", async (request, reply) => {
     const definition = row(await db.collection(C.workflows).doc(grant.workflow_version_id).get());
     if (definition) {
       const progress = run ? await list(nested(run.id, "workflow_steps").orderBy(FieldPath.documentId()).limit(100)) : [];
-      workflow = { id: definition.id, name: definition.name, version: definition.version, steps: definition.steps, contentHash: definition.content_hash, progress: progress.map((s) => ({ stepId: s.step_id, moduleId: s.module_id, status: s.status, startedAt: s.started_at ?? null, completedAt: s.completed_at ?? null })) };
+      workflow = { id: definition.id, name: definition.name, version: definition.version, steps: grant.workflow_steps ?? definition.steps, randomizeTaskOrder: definition.randomize_task_order === true, contentHash: definition.content_hash, progress: progress.map((s) => ({ stepId: s.step_id, moduleId: s.module_id, status: s.status, startedAt: s.started_at ?? null, completedAt: s.completed_at ?? null })) };
     }
   }
   const study = grant.recruitment_source === "prolific" ? row(await db.collection(C.prolific).doc(grant.prolific_study_id).get()) : null;
@@ -310,7 +315,7 @@ app.post("/api/runs", async (request, reply) => {
   }
   const definition = grant.workflow_version_id ? row(await db.collection(C.workflows).doc(grant.workflow_version_id).get()) : null;
   if (grant.workflow_version_id && (!definition || definition.status !== "published")) return reply.code(409).send({ error: "The assigned workflow is no longer available." });
-  const workflowSteps = (definition?.steps ?? []) as WorkflowStep[];
+  const workflowSteps = (grant.workflow_steps ?? definition?.steps ?? []) as WorkflowStep[];
   if (grant.recruitment_source === "prolific" && !grant.gender_identity) return reply.code(409).send({ error: "Please complete the face-set question before starting." });
   const hasTrustTask = grant.study_type === "investor" || workflowSteps.some((step) => step.moduleId === "trust-game");
   const seed = newToken(18); const selectedFaceSet = ["male", "female"].includes(grant.face_set_preference) ? grant.face_set_preference : undefined;
@@ -321,7 +326,7 @@ app.post("/api/runs", async (request, reply) => {
   const runId = crypto.randomUUID(); const scheduleHash = stableJsonHash(schedule); const requestedHost = request.headers["x-study-host"];
   const host = hostSchema.safeParse(requestedHost).success ? requestedHost as string : "portal";
   const headerValue = (name: string) => { const value = request.headers[name]; return typeof value === "string" && value.length <= 160 ? value : null; };
-  const run = { access_grant_id: grant.id, participant_auth_uid: participantAuthUid, study_type: grant.study_type, protocol_version: schedule.protocolVersion, schema_version: DATA_SCHEMA_VERSION, seed, schedule_hash: scheduleHash, outcome_bank_version: hasTrustTask ? "mri-probability-v1" : null, host, host_session_id: headerValue("x-study-session-id"), deployment_id: headerValue("x-study-deployment-id"), client_version: headerValue("x-study-client-version"), schedule, status: "created", started_at: null, completed_at: null, created_at: nowIso(), workflow_definition_id: grant.workflow_version_id ?? null, recruitment_source: grant.recruitment_source ?? "manual" };
+  const run = { access_grant_id: grant.id, participant_auth_uid: participantAuthUid, study_type: grant.study_type, protocol_version: schedule.protocolVersion, schema_version: DATA_SCHEMA_VERSION, seed, schedule_hash: scheduleHash, outcome_bank_version: hasTrustTask ? "mri-probability-v1" : null, host, host_session_id: headerValue("x-study-session-id"), deployment_id: headerValue("x-study-deployment-id"), client_version: headerValue("x-study-client-version"), schedule, status: "created", started_at: null, completed_at: null, created_at: nowIso(), workflow_definition_id: grant.workflow_version_id ?? null, workflow_steps: workflowSteps, workflow_order_randomized: grant.workflow_order_randomized === true, workflow_order_algorithm: grant.workflow_order_algorithm ?? null, recruitment_source: grant.recruitment_source ?? "manual" };
   const ref = runRef(runId);
   const created = await db.runTransaction(async (tx) => {
     const freshGrant = await tx.get(grantRef(grant.id));
@@ -468,7 +473,7 @@ app.post("/api/runs/:runId/workflow-step", async (request, reply) => {
   const run = row(await runRef(params.data.runId).get()); if (!run || run.access_grant_id !== grant.id) return reply.code(404).send({ error: "Run not found." });
   if (run.status === "completed") return reply.code(409).send({ error: "The completed record is immutable." });
   if (run.status !== "running") return reply.code(409).send({ error: "Start the study before advancing workflow steps." });
-  const definition = row(await db.collection(C.workflows).doc(grant.workflow_version_id).get()); const steps = (definition?.steps ?? []) as WorkflowStep[];
+  const definition = row(await db.collection(C.workflows).doc(grant.workflow_version_id).get()); const steps = (grant.workflow_steps ?? definition?.steps ?? []) as WorkflowStep[];
   const step = steps.find((s) => s.id === body.data.stepId); const stateRef = workflowStateRef(run.id, body.data.stepId); const state = row(await stateRef.get());
   if (!step || !state) return reply.code(404).send({ error: "Workflow step not found." });
   const position = steps.findIndex((s) => s.id === step.id); const priorRequired = steps.slice(0, position).filter((s) => s.required);
@@ -506,7 +511,7 @@ app.post("/api/runs/:runId/complete", async (request, reply) => {
   const mapping = grant.recruitment_source === "prolific" ? row(await db.collection(C.prolific).doc(grant.prolific_study_id).get()) : null;
   if (run.status === "completed") return { completionCode: run.completion?.completion_code ?? "", bonusEur: Number(run.bonus?.amount_eur ?? 0), completionRedirectUrl: mapping?.completion_url ?? null };
   if (run.status !== "running") return reply.code(409).send({ error: "Start the study before completing it." });
-  const steps = grant.workflow_version_id ? ((row(await db.collection(C.workflows).doc(grant.workflow_version_id).get())?.steps ?? []) as WorkflowStep[]) : [];
+  const steps = grant.workflow_version_id ? ((grant.workflow_steps ?? row(await db.collection(C.workflows).doc(grant.workflow_version_id).get())?.steps ?? []) as WorkflowStep[]) : [];
   const hasTrustTask = grant.study_type === "investor" || steps.some((s) => s.moduleId === "trust-game");
   if (grant.recruitment_source === "prolific" && grant.workflow_version_id) {
     const states = await list(nested(run.id, "workflow_steps").limit(100)); const byId = new Map(states.map((s) => [s.step_id, s]));
@@ -587,11 +592,12 @@ app.get("/api/admin/workflows", async (request, reply) => {
 
 app.post("/api/admin/workflows", async (request, reply) => {
   const actor = await requireAdmin(request, reply); if (!actor) return;
-  const parsed = z.object({ name: z.string().trim().min(3).max(100).regex(/^[\p{L}\p{N} ._-]+$/u), steps: z.unknown() }).safeParse(request.body);
+  const parsed = z.object({ name: z.string().trim().min(3).max(100).regex(/^[\p{L}\p{N} ._-]+$/u), steps: z.unknown(), randomizeTaskOrder: z.boolean().default(false) }).safeParse(request.body);
   if (!parsed.success) return reply.code(400).send({ error: "Invalid workflow name or steps." });
   const valid = validateWorkflowSteps(parsed.data.steps); if (!valid.ok) return reply.code(400).send({ error: valid.error });
   const metaRef = db.collection("workflow_versions").doc(safeDocId(parsed.data.name)); const id = crypto.randomUUID(); const at = nowIso();
-  const version = await db.runTransaction(async (tx) => { const meta = await tx.get(metaRef); const next = Number(meta.get("latest") ?? 0) + 1; tx.set(metaRef, { name: parsed.data.name, latest: next }); tx.create(db.collection(C.workflows).doc(id), { name: parsed.data.name, version: next, status: "draft", steps: valid.steps, content_hash: stableJsonHash(valid.steps), created_by: actor, created_at: at, published_at: null }); return next; });
+  const definitionContent = { steps: valid.steps, randomizeTaskOrder: parsed.data.randomizeTaskOrder };
+  const version = await db.runTransaction(async (tx) => { const meta = await tx.get(metaRef); const next = Number(meta.get("latest") ?? 0) + 1; tx.set(metaRef, { name: parsed.data.name, latest: next }); tx.create(db.collection(C.workflows).doc(id), { name: parsed.data.name, version: next, status: "draft", steps: valid.steps, randomize_task_order: parsed.data.randomizeTaskOrder, content_hash: stableJsonHash(definitionContent), created_by: actor, created_at: at, published_at: null }); return next; });
   const workflow = row(await db.collection(C.workflows).doc(id).get()); await audit(actor, "workflow.draft.create", { id, name: parsed.data.name }); return { workflow: { ...workflow, version } };
 });
 
@@ -670,7 +676,7 @@ async function researchExport(grantId?: string) {
   const runQuery = grantId ? db.collection(C.runs).where("access_grant_id", "==", grantId) : db.collection(C.runs).orderBy("created_at");
   const rawRuns = await list(runQuery.limit(5000)); const grants = new Map<string, Row>();
   for (const run of rawRuns) { if (!grants.has(run.access_grant_id)) { const g = row(await grantRef(run.access_grant_id).get()); if (g) grants.set(g.id, g); } }
-  const runs: Row[] = rawRuns.map((r) => { const g = grants.get(r.access_grant_id)!; return { run_id: r.id, protocol_version: r.protocol_version, schema_version: r.schema_version, schedule_hash: r.schedule_hash, outcome_bank_version: r.outcome_bank_version ?? null, host: r.host, host_session_id: r.host_session_id ?? null, deployment_id: r.deployment_id ?? null, client_version: r.client_version ?? null, status: r.status, started_at: r.started_at ?? null, completed_at: r.completed_at ?? null, study_type: g.study_type, participant_sex: g.participant_sex ?? null, counterbalance_group: g.counterbalance_group ?? null, workflow_definition_id: r.workflow_definition_id ?? null, recruitment_source: g.recruitment_source ?? "manual", prolific_pid: g.prolific_pid ?? null, prolific_study_id: g.prolific_study_id ?? null, prolific_session_id: g.prolific_session_id ?? null, gender_identity: g.gender_identity ?? null, face_set_preference: g.face_set_preference ?? null, completion_code: r.completion?.completion_code ?? null, quality_status: r.completion?.quality_status ?? null, summary: r.completion?.summary ?? null, bonus_eur: r.bonus?.amount_eur ?? null }; });
+  const runs: Row[] = rawRuns.map((r) => { const g = grants.get(r.access_grant_id)!; return { run_id: r.id, protocol_version: r.protocol_version, schema_version: r.schema_version, schedule_hash: r.schedule_hash, outcome_bank_version: r.outcome_bank_version ?? null, host: r.host, host_session_id: r.host_session_id ?? null, deployment_id: r.deployment_id ?? null, client_version: r.client_version ?? null, status: r.status, started_at: r.started_at ?? null, completed_at: r.completed_at ?? null, study_type: g.study_type, participant_sex: g.participant_sex ?? null, counterbalance_group: g.counterbalance_group ?? null, workflow_definition_id: r.workflow_definition_id ?? null, workflow_steps: r.workflow_steps ?? null, workflow_order_randomized: r.workflow_order_randomized ?? false, workflow_order_algorithm: r.workflow_order_algorithm ?? null, recruitment_source: g.recruitment_source ?? "manual", prolific_pid: g.prolific_pid ?? null, prolific_study_id: g.prolific_study_id ?? null, prolific_session_id: g.prolific_session_id ?? null, gender_identity: g.gender_identity ?? null, face_set_preference: g.face_set_preference ?? null, completion_code: r.completion?.completion_code ?? null, quality_status: r.completion?.quality_status ?? null, summary: r.completion?.summary ?? null, bonus_eur: r.bonus?.amount_eur ?? null }; });
   const events: Row[] = []; const participantEvents: Row[] = []; const workflowSteps: Row[] = [];
   for (const r of rawRuns) {
     const [trial, pEvents, wSteps] = await Promise.all([list(nested(r.id, "trial_events").orderBy("sequence").limit(5000)), list(grantRef(r.access_grant_id).collection("participant_events").orderBy("server_time").limit(5000)), list(nested(r.id, "workflow_steps").orderBy(FieldPath.documentId()).limit(100))]);

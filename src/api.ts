@@ -78,7 +78,7 @@ export const api = {
       sessionToken: string;
       recruitmentSource: "prolific";
       status: string;
-      workflow: { id: string; name: string; version: number; steps: Array<{ id: string; moduleId: string; required: boolean }>; contentHash: string };
+      workflow: { id: string; name: string; version: number; steps: Array<{ id: string; moduleId: string; required: boolean }>; randomizeTaskOrder?: boolean; contentHash: string };
     }>("/api/prolific/entry", { method: "POST", body: JSON.stringify(data) }),
   login: (code: string) =>
     request<{
@@ -108,6 +108,7 @@ export const api = {
         name: string;
         version: number;
         steps: Array<{ id: string; moduleId: string; required: boolean }>;
+        randomizeTaskOrder?: boolean;
         contentHash: string;
         progress: Array<{ stepId: string; moduleId: string; status: string; startedAt: string | null; completedAt: string | null }>;
       } | null;

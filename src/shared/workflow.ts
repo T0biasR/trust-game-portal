@@ -3,6 +3,8 @@ import { PROTOCOL_VERSION } from "./protocol.js";
 
 export type WorkflowModuleId =
   | "trust-game"
+  | "hariri-binary"
+  | "hariri-slider"
   | "hariri-face"
   | "mausland"
   | `questionnaire:${string}`;
@@ -20,6 +22,7 @@ export type WorkflowDefinition = {
   version: number;
   status: "draft" | "published" | "retired";
   steps: WorkflowStep[];
+  randomizeTaskOrder: boolean;
   contentHash: string;
 };
 
@@ -41,12 +44,28 @@ export const WORKFLOW_MODULES: WorkflowModule[] = [
     title: "Trust Game",
     kind: "task",
     enabled: true,
-    description: "Current validated task module.",
+    description: "Current online task implementation; migration to the selected Version 05 source is still pending.",
     version: PROTOCOL_VERSION,
   },
   {
+    id: "hariri-binary",
+    title: "Hariri Binary",
+    kind: "task",
+    enabled: false,
+    description: "DeCoDe26 source identified; browser implementation, stimuli package and data validation are pending.",
+    version: "decode26-binary-pending",
+  },
+  {
+    id: "hariri-slider",
+    title: "Hariri Slider",
+    kind: "task",
+    enabled: false,
+    description: "DeCoDe26 source identified; browser implementation, stimuli package and data validation are pending.",
+    version: "decode26-slider-pending",
+  },
+  {
     id: "hariri-face",
-    title: "Hariri Face Task",
+    title: "Hariri Face Task (legacy)",
     kind: "task",
     enabled: false,
     description: "Not yet cleared for workflow-based production collection.",
@@ -102,4 +121,29 @@ export function validateWorkflowSteps(value: unknown):
   if (steps.filter((step) => step.moduleId === "trust-game").length > 1)
     return { ok: false, error: "The current backend supports one Trust Game step per workflow." };
   return { ok: true, steps };
+}
+
+/** Randomize task steps once per participant while preserving questionnaire slots. */
+export function assignWorkflowOrder(
+  steps: WorkflowStep[],
+  randomizeTaskOrder: boolean,
+  random: () => number = Math.random,
+): WorkflowStep[] {
+  const assigned = steps.map((step) => ({ ...step }));
+  if (!randomizeTaskOrder) return assigned;
+  const taskPositions: number[] = [];
+  const tasks: WorkflowStep[] = [];
+  for (const [index, step] of assigned.entries()) {
+    const module = WORKFLOW_MODULES.find((candidate) => candidate.id === step.moduleId);
+    if (module?.kind === "task") {
+      taskPositions.push(index);
+      tasks.push(step);
+    }
+  }
+  for (let index = tasks.length - 1; index > 0; index -= 1) {
+    const selected = Math.floor(random() * (index + 1));
+    [tasks[index], tasks[selected]] = [tasks[selected], tasks[index]];
+  }
+  taskPositions.forEach((position, index) => { assigned[position] = tasks[index]; });
+  return assigned;
 }

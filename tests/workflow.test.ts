@@ -1,11 +1,27 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateWorkflowSteps, WORKFLOW_MODULES } from "../src/shared/workflow.js";
+import { assignWorkflowOrder, validateWorkflowSteps, WORKFLOW_MODULES, type WorkflowStep } from "../src/shared/workflow.js";
 
 test("workflow registry exposes Trust Game but keeps unvalidated tasks disabled", () => {
   assert.equal(WORKFLOW_MODULES.find((module) => module.id === "trust-game")?.enabled, true);
   assert.equal(WORKFLOW_MODULES.find((module) => module.id === "hariri-face")?.enabled, false);
+  assert.equal(WORKFLOW_MODULES.find((module) => module.id === "hariri-binary")?.enabled, false);
+  assert.equal(WORKFLOW_MODULES.find((module) => module.id === "hariri-slider")?.enabled, false);
   assert.equal(WORKFLOW_MODULES.find((module) => module.id === "mausland")?.enabled, false);
+});
+
+test("participant task randomization changes only task slots and is reproducible with a supplied RNG", () => {
+  const steps: WorkflowStep[] = [
+    { id: "pre", moduleId: "questionnaire:pre", required: true, moduleVersion: "1" },
+    { id: "trust", moduleId: "trust-game", required: true, moduleVersion: "1" },
+    { id: "binary", moduleId: "hariri-binary", required: true, moduleVersion: "1" },
+    { id: "post", moduleId: "questionnaire:post", required: true, moduleVersion: "1" },
+    { id: "slider", moduleId: "hariri-slider", required: true, moduleVersion: "1" },
+  ];
+  const values = [0, 0];
+  const randomized = assignWorkflowOrder(steps, true, () => values.shift() ?? 0);
+  assert.deepEqual(randomized.map((step) => step.id), ["pre", "binary", "slider", "post", "trust"]);
+  assert.deepEqual(assignWorkflowOrder(steps, false).map((step) => step.id), steps.map((step) => step.id));
 });
 
 test("workflow validation preserves module order and required flags", () => {
